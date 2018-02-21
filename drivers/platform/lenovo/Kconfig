@@ -1,7 +1,7 @@
 # Lenovo configuration options
 
 config MACH_LENOVO
-	bool "Wingtech device"
+	bool "Lenovo device"
 	depends on ARCH_MSM
 	help
 	  Support for Lenovo products
@@ -20,5 +20,11 @@ config MACH_WT86518
 	select MACH_LENOVO_MSM8916
 	help
 	  Support for Lenovo A6000(s) variant
+
+config MACH_LENOVO_A6020
+        bool "LENOVO_A6020 board"
+        select MACH_LENOVO_MSM8916
+        help
+          Support for Lenovo Vibe K5/K5 Plus variants
 
 endmenu
