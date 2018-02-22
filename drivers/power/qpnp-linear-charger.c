@@ -38,6 +38,10 @@
 #define BAT_TEMP_OK_IRQ                         BIT(1)
 #define BATT_PRES_IRQ                           BIT(0)
 
+#ifdef CONFIG_MACH_LENOVO_A6020
+#define USB_CHG_PTH_STS				0x09
+#endif
+
 /* USB CHARGER PATH peripheral register offsets */
 #define USB_IN_VALID_MASK			BIT(1)
 #define CHG_GONE_BIT				BIT(2)
@@ -210,6 +214,10 @@ static enum power_supply_property msm_batt_power_props[] = {
 	POWER_SUPPLY_PROP_COOL_TEMP,
 	POWER_SUPPLY_PROP_WARM_TEMP,
 	POWER_SUPPLY_PROP_SYSTEM_TEMP_LEVEL,
+
+#ifdef CONFIG_MACH_LENOVO_A6020
+	POWER_SUPPLY_PROP_TECHNOLOGY,
+#endif
 };
 
 static char *pm_batt_supplied_to[] = {
@@ -369,6 +377,9 @@ struct qpnp_lbc_chip {
 	int				init_trim_uv;
 	struct delayed_work		collapsible_detection_work;
 
+#ifdef CONFIG_MACH_LENOVO_A6020
+	int                             chg_voltage;
+#endif
 	/* parallel-chg params */
 	int				parallel_charging_enabled;
 	int				lbc_max_chg_current;
@@ -685,8 +696,9 @@ static int qpnp_lbc_charger_enable(struct qpnp_lbc_chip *chip, int reason,
 		goto skip;
 
 	reg_val = !!disabled ? CHG_FORCE_BATT_ON : CHG_ENABLE;
-	rc = qpnp_lbc_masked_write(chip, chip->chgr_base + CHG_CTRL_REG,
-				CHG_EN_MASK, reg_val);
+        rc = qpnp_lbc_masked_write(chip, chip->chgr_base + CHG_CTRL_REG,
+                                CHG_EN_MASK, reg_val);
+
 	if (rc) {
 		pr_err("Failed to %s charger rc=%d\n",
 				reg_val ? "enable" : "disable", rc);
@@ -1254,6 +1266,10 @@ static int get_prop_batt_health(struct qpnp_lbc_chip *chip)
 		return POWER_SUPPLY_HEALTH_COOL;
 	if (chip->bat_is_warm)
 		return POWER_SUPPLY_HEALTH_WARM;
+#ifdef CONFIG_MACH_LENOVO_A6020
+	if (chip->chg_voltage == POWER_SUPPLY_HEALTH_OVERVOLTAGE)
+		return POWER_SUPPLY_HEALTH_OVERVOLTAGE;
+#endif
 
 	return POWER_SUPPLY_HEALTH_GOOD;
 }
@@ -1725,6 +1741,12 @@ static int qpnp_batt_power_get_property(struct power_supply *psy,
 	case POWER_SUPPLY_PROP_SYSTEM_TEMP_LEVEL:
 		val->intval = chip->therm_lvl_sel;
 		break;
+
+#ifdef CONFIG_MACH_LENOVO_A6020
+	case POWER_SUPPLY_PROP_TECHNOLOGY:
+		val->intval = POWER_SUPPLY_TECHNOLOGY_LION;
+		break;
+#endif
 	default:
 		return -EINVAL;
 	}
@@ -2460,10 +2482,34 @@ static irqreturn_t qpnp_lbc_usbin_valid_irq_handler(int irq, void *_chip)
 {
 	struct qpnp_lbc_chip *chip = _chip;
 	int usb_present;
+
+#ifdef CONFIG_MACH_LENOVO_A6020
+	int rc;
+        u8 usbin_path_sts;
+#endif
 	unsigned long flags;
 
 	usb_present = qpnp_lbc_is_usb_chg_plugged_in(chip);
 	pr_debug("usbin-valid triggered: %d\n", usb_present);
+
+#ifdef CONFIG_MACH_LENOVO_A6020
+        rc = qpnp_lbc_read(chip, chip->usb_chgpth_base + USB_CHG_PTH_STS,&usbin_path_sts, 1);
+	if (rc) {
+	        pr_debug("spmi read failed: addr=0x%x, rc=0x%x\n",
+				        chip->usb_chgpth_base + USB_CHG_PTH_STS, usbin_path_sts);
+	}
+                if(usbin_path_sts == 0x50){
+                        pr_err("jeft USB overvoltage\n");
+			chip->chg_voltage = POWER_SUPPLY_HEALTH_OVERVOLTAGE;
+                        power_supply_set_health_state(chip->usb_psy, POWER_SUPPLY_HEALTH_OVERVOLTAGE);
+                }
+                else if(usbin_path_sts == 0x10){
+                       pr_err("jeft USB undervoltage\n");
+                }
+                else{
+		        chip->chg_voltage = 0;
+                }
+#endif
 
 	if (chip->usb_present ^ usb_present) {
 		chip->usb_present = usb_present;

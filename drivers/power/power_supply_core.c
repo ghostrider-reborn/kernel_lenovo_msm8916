@@ -20,6 +20,10 @@
 #include <linux/thermal.h>
 #include "power_supply.h"
 
+#ifdef CONFIG_MACH_LENOVO_A6020
+#include <linux/delay.h>
+#endif
+
 /* exported for the APM Power driver, APM emulation */
 struct class *power_supply_class;
 EXPORT_SYMBOL_GPL(power_supply_class);
@@ -314,6 +318,9 @@ static void power_supply_changed_work(struct work_struct *work)
 		power_supply_update_leds(psy);
 
 		kobject_uevent(&psy->dev->kobj, KOBJ_CHANGE);
+#ifdef CONFIG_MACH_LENOVO_A6020
+		msleep(100); //james.hong added for improving wake up system speed from QC case 01817960
+#endif
 		spin_lock_irqsave(&psy->changed_lock, flags);
 	}
 	if (!psy->changed)

@@ -24,7 +24,12 @@
 #define PC_TEMP_ROWS		31
 #define PC_TEMP_COLS		8
 
+#ifdef CONFIG_MACH_LENOVO_A6020
+#define ACC_IBAT_ROWS		6
+#else
 #define ACC_IBAT_ROWS		4
+#endif
+
 #define ACC_TEMP_COLS		3
 
 #define MAX_SINGLE_LUT_COLS	20
