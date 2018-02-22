@@ -964,8 +964,7 @@ void mdss_dsi_cmd_bta_sw_trigger(struct mdss_panel_data *pdata)
 	pr_debug("%s: BTA done, status = %d\n", __func__, status);
 }
 
-
-#ifdef CONFIG_MACH_WT86518
+#ifdef CONFIG_MACH_LENOVO_MSM8916
 static int mdss_dsi_read_status(struct mdss_dsi_ctrl_pdata *ctrl, int i)
 #else
 static int mdss_dsi_read_status(struct mdss_dsi_ctrl_pdata *ctrl)
@@ -974,7 +973,7 @@ static int mdss_dsi_read_status(struct mdss_dsi_ctrl_pdata *ctrl)
 	struct dcs_cmd_req cmdreq;
 
 	memset(&cmdreq, 0, sizeof(cmdreq));
-#ifdef CONFIG_MACH_WT86518
+#ifdef CONFIG_MACH_LENOVO_MSM8916
 	cmdreq.cmds = ctrl->status_cmds[i].cmds;
 	cmdreq.cmds_cnt = ctrl->status_cmds[i].cmd_cnt;
 #else
@@ -1003,7 +1002,7 @@ static int mdss_dsi_read_status(struct mdss_dsi_ctrl_pdata *ctrl)
 int mdss_dsi_reg_status_check(struct mdss_dsi_ctrl_pdata *ctrl_pdata)
 {
 	int ret = 0;
-#ifdef CONFIG_MACH_WT86518
+#ifdef CONFIG_MACH_LENOVO_MSM8916
 	int i,j;
 	u32 value;
 #endif
@@ -1014,7 +1013,7 @@ int mdss_dsi_reg_status_check(struct mdss_dsi_ctrl_pdata *ctrl_pdata)
 	}
 
 	pr_debug("%s: Checking Register status\n", __func__);
-#ifdef CONFIG_MACH_WT86518
+#ifdef CONFIG_MACH_LENOVO_MSM8916
 	for(i=0;i<ctrl_pdata->status_cmds_num;i++)
 	{
 		value = 0;
@@ -1029,8 +1028,8 @@ int mdss_dsi_reg_status_check(struct mdss_dsi_ctrl_pdata *ctrl_pdata)
 			mdss_dsi_set_tx_power_mode(1, &ctrl_pdata->panel_data);
 
 		/*
-		 * mdss_dsi_read_status returns the number of bytes returned
-		 * by the panel. Success value is greater than zero and failure
+		* mdss_dsi_read_status returns the number of bytes returned
+		* by the panel. Success value is greater than zero and failure
 	 	* case returns zero.
 	 	*/
 		if (ret > 0) {
@@ -1038,14 +1037,14 @@ int mdss_dsi_reg_status_check(struct mdss_dsi_ctrl_pdata *ctrl_pdata)
 			{
 				value = (value << 8) | ctrl_pdata->status_buf.data[j];
 			}
-			
+
 			pr_debug("%s: Read back value from panel is: %x\n", __func__, value);
-			
+
 			if(value != ctrl_pdata->status_value[i][1])
 			{
 				pr_err("%s: Read back value from panel is incorrect\n",
 								__func__);
-				mdss_dsi_clk_ctrl(ctrl_pdata, DSI_ALL_CLKS, 0);			
+				mdss_dsi_clk_ctrl(ctrl_pdata, DSI_ALL_CLKS, 0);
 				return -EINVAL;
 			} else
 			{
@@ -1080,7 +1079,7 @@ int mdss_dsi_reg_status_check(struct mdss_dsi_ctrl_pdata *ctrl_pdata)
 		pr_err("%s: Read status register returned error\n", __func__);
 	}
 #endif
-#ifndef CONFIG_MACH_WT86518
+#ifndef CONFIG_MACH_LENOVO_MSM8916
 	mdss_dsi_clk_ctrl(ctrl_pdata, DSI_ALL_CLKS, 0);
 #endif
 	pr_debug("%s: Read register done with ret: %d\n", __func__, ret);

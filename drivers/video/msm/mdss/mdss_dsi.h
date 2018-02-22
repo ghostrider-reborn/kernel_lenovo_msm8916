@@ -124,9 +124,17 @@ enum dsi_pm_type {
 	DSI_MAX_PM
 };
 
-#ifdef CONFIG_MACH_WT86518
+#ifdef CONFIG_MACH_LENOVO_MSM8916
+
 #define STATUS_CMDS_NUM 5
 #define STATUS_VALUE_NUM 5
+
+#ifdef CONFIG_MACH_LENOVO_A6020
+#define LCD_SATURATION_CMDS_NUM 4
+#define LCD_HUE_CMDS_NUM 22
+#define CUST_CMDS_NUM 2
+#endif
+
 #endif
 
 #define CTRL_STATE_UNKNOWN		0x00
@@ -374,13 +382,13 @@ struct mdss_dsi_ctrl_pdata {
 	u32 dsi_irq_mask;
 	struct mdss_hw *dsi_hw;
 	struct mdss_intf_recovery *recovery;
-
+	struct mutex gamma_ctl_lock;
 	struct dsi_panel_cmds on_cmds;
 	struct dsi_panel_cmds post_dms_on_cmds;
 	struct dsi_panel_cmds post_panel_on_cmds;
 	struct dsi_panel_cmds off_cmds;
 
-#ifdef CONFIG_MACH_WT86518
+#ifdef CONFIG_MACH_LENOVO_MSM8916
 	struct dsi_panel_cmds status_cmds[STATUS_CMDS_NUM];
 	int status_cmds_num;
 #else
@@ -388,10 +396,24 @@ struct mdss_dsi_ctrl_pdata {
 #endif
 	u32 status_cmds_rlen;
 
-#ifdef CONFIG_MACH_WT86518
+#ifdef CONFIG_MACH_LENOVO_MSM8916
 	u32 status_value[STATUS_CMDS_NUM][STATUS_VALUE_NUM];
 #else
 	u32 status_value;
+#endif
+
+#ifdef CONFIG_MACH_LENOVO_A6020
+	/*+req_LCD wuzhenzhen.wt, add, 2015/8/03,add LCD gamma control code*/
+	struct dsi_panel_cmds default_cmds;
+	struct dsi_panel_cmds comfort_cmds;
+	struct dsi_panel_cmds superbright_cmds;
+	int saturation_cmds_num;
+	int hue_cmds_num;
+	struct dsi_panel_cmds hue_cmds[LCD_HUE_CMDS_NUM];
+	struct dsi_panel_cmds saturation_cmds[LCD_SATURATION_CMDS_NUM];
+	struct dsi_panel_cmds cust_cmds[CUST_CMDS_NUM];
+	bool init_last;
+	/*-req_LCD wuzhenzhen.wt, add, 2015/8/03,add LCD gamma control code*/
 #endif
 	u32 status_error_count;
 
@@ -443,6 +465,34 @@ struct dsi_status_data {
 	struct delayed_work check_status;
 	struct msm_fb_data_type *mfd;
 };
+
+#ifdef CONFIG_MACH_LENOVO_A6020
+struct LCD_Color_mode{
+	int lcd_mode;
+	int hue;
+	int saturation;
+};
+
+struct ce_gamma{
+	int magic;
+	int lcd_mode;
+	int hue;
+	int saturation;
+};
+
+struct dsi_ce_gamma_event{
+        int ce_gamma_flag;
+        wait_queue_head_t ce_gamma_wq;
+        spinlock_t ce_gamma_lock;
+};
+
+enum {
+ DEFAULT = 0,
+ COMFORT = 1,
+ SUPERBRIGHT = 2,
+ CUST = 3,
+};
+#endif
 
 int dsi_panel_device_register(struct device_node *pan_node,
 				struct mdss_dsi_ctrl_pdata *ctrl_pdata);
@@ -501,6 +551,11 @@ void mdss_dsi_wait4video_done(struct mdss_dsi_ctrl_pdata *ctrl);
 void mdss_dsi_en_wait4dynamic_done(struct mdss_dsi_ctrl_pdata *ctrl);
 int mdss_dsi_cmdlist_commit(struct mdss_dsi_ctrl_pdata *ctrl, int from_mdp);
 void mdss_dsi_cmdlist_kickoff(int intf);
+
+#ifdef CONFIG_MACH_LENOVO_A6020
+int mdss_panel_set_gamma(struct mdss_panel_data *pdata,  struct LCD_Color_mode mode);
+#endif
+
 int mdss_dsi_bta_status_check(struct mdss_dsi_ctrl_pdata *ctrl);
 int mdss_dsi_reg_status_check(struct mdss_dsi_ctrl_pdata *ctrl);
 bool __mdss_dsi_clk_enabled(struct mdss_dsi_ctrl_pdata *ctrl, u8 clk_type);

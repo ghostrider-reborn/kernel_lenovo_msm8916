@@ -24,7 +24,7 @@
 
 #include "mdss_dsi.h"
 
-#ifdef CONFIG_MACH_WT86518
+#ifdef CONFIG_MACH_LENOVO_MSM8916
 #include <linux/hardware_info.h>
 #endif
 
@@ -56,7 +56,7 @@ void mdss_dsi_panel_pwm_cfg(struct mdss_dsi_ctrl_pdata *ctrl)
 				__func__, ctrl->pwm_lpg_chan);
 	}
 
-#ifdef CONFIG_MACH_WT86518
+#ifdef CONFIG_MACH_LENOVO_MSM8916
 	ctrl->pwm_enabled = 1;
 #else
 	ctrl->pwm_enabled = 0;
@@ -632,8 +632,74 @@ static int mdss_dsi_panel_on(struct mdss_panel_data *pdata)
 			goto end;
 	}
 
+#ifndef CONFIG_MACH_LENOVO_A6020
 	if (ctrl->on_cmds.cmd_cnt)
 		mdss_dsi_panel_cmds_send(ctrl, &ctrl->on_cmds);
+#else
+/*+req_LCD wuzhenzhen.wt, add, 2015/8/03,add LCD gamma control code*/
+
+	if(ctrl->init_last){
+		if (ctrl->cust_cmds[0].cmd_cnt)
+		{
+			if(ctrl->cust_cmds[0].link_state  ==  DSI_HS_MODE)
+			{
+				ctrl->cust_cmds[0].link_state = DSI_LP_MODE;
+				mdss_dsi_panel_cmds_send(ctrl, &ctrl->cust_cmds[0]);
+				ctrl->cust_cmds[0].link_state = DSI_HS_MODE;
+			}
+			else
+			{
+				mdss_dsi_panel_cmds_send(ctrl, &ctrl->cust_cmds[0]);
+			}
+		}
+		if (ctrl->cust_cmds[1].cmd_cnt)	
+		{
+			if(ctrl->cust_cmds[1].link_state  ==  DSI_HS_MODE)
+			{
+				ctrl->cust_cmds[1].link_state = DSI_LP_MODE;
+				mdss_dsi_panel_cmds_send(ctrl, &ctrl->cust_cmds[1]);
+				ctrl->cust_cmds[1].link_state = DSI_HS_MODE;
+			}
+			else
+			{
+				mdss_dsi_panel_cmds_send(ctrl, &ctrl->cust_cmds[1]);
+			}
+		}
+		if (ctrl->on_cmds.cmd_cnt)
+			mdss_dsi_panel_cmds_send(ctrl, &ctrl->on_cmds);
+	}
+	else {
+		if (ctrl->on_cmds.cmd_cnt)
+			mdss_dsi_panel_cmds_send(ctrl, &ctrl->on_cmds);
+		if (ctrl->cust_cmds[0].cmd_cnt)
+		{
+			if(ctrl->cust_cmds[0].link_state  ==  DSI_HS_MODE)
+			{
+				ctrl->cust_cmds[0].link_state = DSI_LP_MODE;
+				mdss_dsi_panel_cmds_send(ctrl, &ctrl->cust_cmds[0]);
+				ctrl->cust_cmds[0].link_state = DSI_HS_MODE;
+			}
+			else
+			{
+				mdss_dsi_panel_cmds_send(ctrl, &ctrl->cust_cmds[0]);
+			}
+		}
+		if (ctrl->cust_cmds[1].cmd_cnt)	
+		{
+			if(ctrl->cust_cmds[1].link_state  ==  DSI_HS_MODE)
+			{
+				ctrl->cust_cmds[1].link_state = DSI_LP_MODE;
+				mdss_dsi_panel_cmds_send(ctrl, &ctrl->cust_cmds[1]);
+				ctrl->cust_cmds[1].link_state = DSI_HS_MODE;
+			}
+			else
+			{
+				mdss_dsi_panel_cmds_send(ctrl, &ctrl->cust_cmds[1]);
+			}
+		}
+	}
+/*-req_LCD wuzhenzhen.wt, add, 2015/9/03,add LCD gamma control code*/
+#endif
 
 end:
 	pinfo->blank_state = MDSS_PANEL_BLANK_UNBLANK;
@@ -738,6 +804,47 @@ static int mdss_dsi_panel_low_power_config(struct mdss_panel_data *pdata,
 // We dont need this on a6000 (SOT LAGANI HAI!)
 #endif
 
+#ifdef CONFIG_MACH_LENOVO_A6020
+/*+req_LCD wuzhenzhen.wt, add, 2015/8/17,add LCD gamma/ce control code*/
+int mdss_dsi_panel_gamma(struct mdss_panel_data *pdata)
+{
+	struct mipi_panel_info *mipi;
+	struct mdss_dsi_ctrl_pdata *ctrl = NULL;
+	int i;
+
+	if (pdata == NULL) {
+		pr_err("%s: Invalid input data\n", __func__);
+		return -EINVAL;
+	}
+	
+	ctrl = container_of(pdata, struct mdss_dsi_ctrl_pdata,
+				panel_data);
+	mipi = &pdata->panel_info.mipi;
+
+	for(i=0; i < CUST_CMDS_NUM; i++)
+	{
+		if (ctrl->cust_cmds[i].cmd_cnt){
+			if (ctrl->cust_cmds[i].link_state == DSI_HS_MODE)
+				mdss_dsi_set_tx_power_mode(0, &ctrl->panel_data);
+
+			pr_debug("%s: ctrl=%p ndx=%d\n", __func__, ctrl, ctrl->ndx);
+
+			
+				mdss_dsi_panel_cmds_send(ctrl, &ctrl->cust_cmds[i]);
+
+			if (ctrl->cust_cmds[i].link_state == DSI_HS_MODE)
+				mdss_dsi_set_tx_power_mode(1, &ctrl->panel_data);
+		}
+	}
+		
+
+	pr_debug("%s:-\n", __func__);
+	return 0;
+}
+
+/*-req_LCD wuzhenzhen.wt, add, 2015/8/17,add LCD gamma/ce control code*/
+#endif
+
 static void mdss_dsi_parse_lane_swap(struct device_node *np, char *dlane_swap)
 {
 	const char *data;
@@ -811,7 +918,7 @@ static int mdss_dsi_parse_dcs_cmds(struct device_node *np,
 		dchdr = (struct dsi_ctrl_hdr *)bp;
 		dchdr->dlen = ntohs(dchdr->dlen);
 		if (dchdr->dlen > len) {
-			pr_err("%s: dtsi cmd=%x error, len=%d",
+			pr_err("%s: dtsi cmd=%x error, len=%d\n",
 				__func__, dchdr->dtype, dchdr->dlen);
 			goto exit_free;
 		}
@@ -823,7 +930,7 @@ static int mdss_dsi_parse_dcs_cmds(struct device_node *np,
 	}
 
 	if (len != 0) {
-		pr_err("%s: dcs_cmd=%x len=%d error!",
+		pr_err("%s: dcs_cmd=%x len=%d error!\n",
 				__func__, buf[0], blen);
 		goto exit_free;
 	}
@@ -1068,7 +1175,7 @@ static int mdss_dsi_parse_reset_seq(struct device_node *np,
 	return 0;
 }
 
-#ifndef CONFIG_MACH_WT86518
+#ifndef CONFIG_MACH_LENOVO_MSM8916
 static int mdss_dsi_gen_read_status(struct mdss_dsi_ctrl_pdata *ctrl_pdata)
 {
 	if (ctrl_pdata->status_buf.data[0] !=
@@ -1485,7 +1592,55 @@ static void mdss_dsi_set_lane_clamp_mask(struct mipi_panel_info *mipi)
 	mipi->phy_lane_clamp_mask = mask;
 }
 
-#ifdef CONFIG_MACH_WT86518
+#ifdef CONFIG_MACH_LENOVO_A6020
+//+Other_LCD wuzhenzhen.wt,ADD,2015/9/03,ADD LCD gamma control code*/
+void mdss_dsi_parse_hue_command(struct device_node *np, struct mdss_dsi_ctrl_pdata *ctrl_pdata)
+{
+	int i=0;
+	char cmd_key[] = "qcom,mdss-dsi-panel-hue-command01";
+	int cmd_len = strlen(cmd_key);
+	for(i = 1;i <= ctrl_pdata->hue_cmds_num;i++)
+	{
+		if(i < 100)
+		{
+			cmd_key[cmd_len-1] = i%10 + '0';
+			cmd_key[cmd_len-2] = i/10 + '0';
+		}
+		else
+		{
+			pr_err("%s: failed, array too large!\n", __func__);
+		}
+		mdss_dsi_parse_dcs_cmds(np, &ctrl_pdata->hue_cmds[i-1],
+			cmd_key, "qcom,mdss-dsi-panel-gamma-command-state");
+	}
+}
+
+void mdss_dsi_parse_saturation_command(struct device_node *np, struct mdss_dsi_ctrl_pdata *ctrl_pdata)
+{
+	int i=0;
+	char cmd_key[] = "qcom,mdss-dsi-panel-saturation-command01";
+	int cmd_len = strlen(cmd_key);
+	for(i = 1;i <= ctrl_pdata->saturation_cmds_num;i++)
+	{
+		if(i < 100)
+		{
+			cmd_key[cmd_len-1] = i%10 + '0';
+			cmd_key[cmd_len-2] = i/10 + '0';
+		}
+		else
+		{
+			pr_err("%s: failed, array too large!\n", __func__);
+		}
+
+		mdss_dsi_parse_dcs_cmds(np, &ctrl_pdata->saturation_cmds[i-1],
+			cmd_key, "qcom,mdss-dsi-panel-gamma-command-state");
+	}
+}
+//+Other_LCD wuzhenzhen.wt,ADD,2015/9/03,ADD LCD gamma control code*/
+#endif
+
+#ifdef CONFIG_MACH_LENOVO_MSM8916
+//+Other_LCD wuzhenzhen.wt,MODIFY,2014/1/15,modify LCD ESD check methods to read multiful registers and values*/
 void mdss_dsi_parse_status_command(struct device_node *np, struct mdss_dsi_ctrl_pdata *ctrl_pdata)
 {
 	int i=0;
@@ -1530,6 +1685,56 @@ int mdss_dsi_parse_status_value(struct device_node *np, struct mdss_dsi_ctrl_pda
 	}
 	return 1;
 }
+//-Other_LCD wuzhenzhen.wt,MODIFY,2014/1/15,modify LCD ESD check methods to read multiful registers and values*/
+#endif
+
+#ifdef CONFIG_MACH_LENOVO_A6020
+int parse_cmldine_for_lcd(int *hue, int *saturation)
+{
+		char* cmdline_lcd_hue, *cmdline_lcd_saturation;
+		char *temp;
+		int temp_hue = 0, temp_saturation = 0;
+
+		cmdline_lcd_hue = strstr(saved_command_line,"lcd_hue=");
+
+		if(cmdline_lcd_hue != NULL)
+		{
+			temp = cmdline_lcd_hue + strlen("lcd_hue=");
+
+			while(*temp != ':')
+			{
+				temp_hue = temp_hue*10 + (*temp - '0');
+				temp++;
+			}
+		}
+		else
+		{
+			pr_debug("no hue data\n");
+			return -1;
+		}
+
+		cmdline_lcd_saturation = strstr(saved_command_line,"lcd_sat=");
+
+		if(cmdline_lcd_saturation != NULL)
+		{
+			temp = cmdline_lcd_saturation + strlen("lcd_sat=");
+			while(*temp != ':')
+			{
+				temp_saturation = temp_saturation*10 + (*temp - '0');
+				temp++;
+			}
+		}
+		else
+		{
+			pr_debug("no saturation data\n");
+			return -1;
+		}
+
+		*hue = temp_hue;
+		*saturation = temp_saturation;
+
+		return 0;
+}
 #endif
 
 static int mdss_panel_parse_dt(struct device_node *np,
@@ -1541,6 +1746,9 @@ static int mdss_panel_parse_dt(struct device_node *np,
 	static const char *pdest;
 	struct mdss_panel_info *pinfo = &(ctrl_pdata->panel_data.panel_info);
 
+#ifdef CONFIG_MACH_LENOVO_A6020
+	int lcd_hue, lcd_saturation;
+#endif
 	rc = of_property_read_u32(np, "qcom,mdss-dsi-panel-width", &tmp);
 	if (rc) {
 		pr_err("%s:%d, panel width not specified\n",
@@ -1863,18 +2071,15 @@ static int mdss_panel_parse_dt(struct device_node *np,
 	mdss_dsi_parse_dcs_cmds(np, &ctrl_pdata->off_cmds,
 		"qcom,mdss-dsi-off-command", "qcom,mdss-dsi-off-command-state");
 
-#ifdef CONFIG_MACH_WT86518
-
+#ifdef CONFIG_MACH_LENOVO_MSM8916
 	rc = of_property_read_u32(np, "qcom,mdss-dsi-panel-status-command-num", &tmp);
 	ctrl_pdata->status_cmds_num = (!rc ? tmp : 0);
 	mdss_dsi_parse_status_command(np, ctrl_pdata);
 	rc = mdss_dsi_parse_status_value(np, ctrl_pdata);
 
 	if (!rc) {
-
 		pr_err("%s: failed to parse panel status_value\n", __func__);
 		goto error;
-
 	}
 #else
 	mdss_dsi_parse_dcs_cmds(np, &ctrl_pdata->status_cmds,
@@ -1884,6 +2089,31 @@ static int mdss_panel_parse_dt(struct device_node *np,
 	ctrl_pdata->status_value = (!rc ? tmp : 0);
 #endif
 
+#ifdef CONFIG_MACH_LENOVO_A6020
+	/*+req_LCD wuzhenzhen.wt, add, 2015/9/03,add LCD gamma control code*/
+	rc = of_property_read_u32(np, "qcom,mdss-dsi-panel-hue-command-num", &tmp);
+	ctrl_pdata->hue_cmds_num = (!rc ? tmp : 0);
+
+	mdss_dsi_parse_hue_command(np, ctrl_pdata);
+
+	rc = of_property_read_u32(np, "qcom,mdss-dsi-panel-saturation-command-num", &tmp);
+	ctrl_pdata->saturation_cmds_num = (!rc ? tmp : 0);
+
+	mdss_dsi_parse_saturation_command(np, ctrl_pdata);
+
+	ctrl_pdata->init_last = of_property_read_bool(np,"qcom,mdss-dsi-init-last");
+
+	if(0 ==parse_cmldine_for_lcd(&lcd_hue, &lcd_saturation))
+	{
+		pr_debug("lcd_hue = %d, lcd_saturation = %d\n", lcd_hue, lcd_saturation);
+		ctrl_pdata->cust_cmds[0] = ctrl_pdata->hue_cmds[lcd_hue];
+		ctrl_pdata->cust_cmds[1] = ctrl_pdata->saturation_cmds[lcd_saturation];	
+	}
+
+	/*-req_LCD wuzhenzhen.wt, add, 2015/9/03,add LCD gamma control code*/
+#endif
+
+
 	ctrl_pdata->status_mode = ESD_MAX;
 	rc = of_property_read_string(np,
 				"qcom,mdss-dsi-panel-status-check-mode", &data);
@@ -1892,7 +2122,7 @@ static int mdss_panel_parse_dt(struct device_node *np,
 			ctrl_pdata->status_mode = ESD_BTA;
 		} else if (!strcmp(data, "reg_read")) {
 			ctrl_pdata->status_mode = ESD_REG;
-#ifdef CONFIG_MACH_WT86518
+#ifdef CONFIG_MACH_LENOVO_A6020
 			ctrl_pdata->status_cmds_rlen = 4;
 #else
 			ctrl_pdata->status_cmds_rlen = 1;
@@ -1903,9 +2133,7 @@ static int mdss_panel_parse_dt(struct device_node *np,
 			ctrl_pdata->status_mode = ESD_REG_NT35596;
 			ctrl_pdata->status_error_count = 0;
 			ctrl_pdata->status_cmds_rlen = 8;
-#ifdef CONFIG_MACH_WT86518
-		} else if (!strcmp(data, "te_signal_check")) {
-#else
+#ifndef CONFIG_MACH_LENOVO_MSM8916
 			ctrl_pdata->check_read_status =
 						mdss_dsi_nt35596_read_status;
 #endif
@@ -1986,7 +2214,7 @@ static int msm_lcd_name_create_sysfs(void)
 #endif
 #endif
 
-#ifdef CONFIG_MACH_WT86518
+#ifdef CONFIG_MACH_LENOVO_MSM8916
 extern char Lcm_name[HARDWARE_MAX_ITEM_LONGTH];
 #endif
 
@@ -2015,7 +2243,7 @@ int mdss_dsi_panel_init(struct device_node *node,
 		pr_info("%s: Panel Name = %s\n", __func__, panel_name);
 		strlcpy(&pinfo->panel_name[0], panel_name, MDSS_MAX_PANEL_LEN);
 
-#ifdef CONFIG_MACH_WT86518
+#ifdef CONFIG_MACH_LENOVO_MSM8916
 		strcpy(Lcm_name,panel_name);
 #endif
 	}
