@@ -31,7 +31,7 @@
 #include "wcd-mbhc-v2.h"
 #include "wcdcal-hwdep.h"
 
-#ifdef CONFIG_MACH_WT86518
+#ifdef CONFIG_MACH_LENOVO_MSM8916
 #include "msm8x16_wcd_registers.h"
 #include "msm8x16-wcd.h"
 #endif
@@ -506,10 +506,9 @@ static bool wcd_mbhc_is_hph_pa_on(struct wcd_mbhc *mbhc)
 static void wcd_mbhc_set_and_turnoff_hph_padac(struct wcd_mbhc *mbhc)
 {
 	u8 wg_time;
-#ifdef CONFIG_MACH_WT86518
+#ifdef CONFIG_MACH_LENOVO_MSM8916
 	u8 state = 0;
 #endif
-
 	WCD_MBHC_REG_READ(WCD_MBHC_HPH_CNP_WG_TIME, wg_time);
 	wg_time += 1;
 
@@ -523,7 +522,7 @@ static void wcd_mbhc_set_and_turnoff_hph_padac(struct wcd_mbhc *mbhc)
 		pr_debug("%s PA is off\n", __func__);
 	}
 
-#ifdef CONFIG_MACH_WT86518
+#ifdef CONFIG_MACH_LENOVO_MSM8916
 	state = gpio_get_value(EXT_SPK_AMP_GPIO);
 	pr_debug("%s external audio pa state:%d\n", __func__,state);
 	if (!state)
@@ -593,11 +592,9 @@ static void wcd_mbhc_report_plug(struct wcd_mbhc *mbhc, int insertion,
 			 jack_type, mbhc->hph_status);
 		wcd_mbhc_jack_report(mbhc, &mbhc->headset_jack,
 				mbhc->hph_status, WCD_MBHC_JACK_MASK);
-
-#ifdef CONFIG_MACH_WT86518
+#ifdef CONFIG_MACH_LENOVO_MSM8916
 		msm8x16_wcd_codec_set_headset_state(mbhc->hph_status);
 #endif
-
 		wcd_mbhc_set_and_turnoff_hph_padac(mbhc);
 		hphrocp_off_report(mbhc, SND_JACK_OC_HPHR);
 		hphlocp_off_report(mbhc, SND_JACK_OC_HPHL);
@@ -707,8 +704,7 @@ static void wcd_mbhc_report_plug(struct wcd_mbhc *mbhc, int insertion,
 				    (mbhc->hph_status | SND_JACK_MECHANICAL),
 				    WCD_MBHC_JACK_MASK);
 		wcd_mbhc_clr_and_turnon_hph_padac(mbhc);
-
-#ifdef CONFIG_MACH_WT86518
+#ifdef CONFIG_MACH_LENOVO_MSM8916
 		msm8x16_wcd_codec_set_headset_state(mbhc->hph_status);
 #endif
 	}
@@ -1329,6 +1325,12 @@ static void wcd_mbhc_swch_irq_handler(struct wcd_mbhc *mbhc)
 
 	if ((mbhc->current_plug == MBHC_PLUG_TYPE_NONE) &&
 	    detection_type) {
+#ifdef CONFIG_MACH_LENOVO_A6020
+		msleep(150);
+                /*enable HS_US_EU_EN_GPIO */
+		gpio_direction_output(HS_US_EU_EN_GPIO, true);
+		msleep(150);
+#endif
 		/* Make sure MASTER_BIAS_CTL is enabled */
 		mbhc->mbhc_cb->mbhc_bias(codec, true);
 
@@ -1354,8 +1356,8 @@ static void wcd_mbhc_swch_irq_handler(struct wcd_mbhc *mbhc)
 			mbhc->mbhc_cb->enable_mb_source(codec, true);
 		mbhc->btn_press_intr = false;
 		wcd_mbhc_detect_plug_type(mbhc);
-	} else if ((mbhc->current_plug != MBHC_PLUG_TYPE_NONE)
-			&& !detection_type) {
+        } else if ((mbhc->current_plug != MBHC_PLUG_TYPE_NONE)
+                        && !detection_type) {
 		/* Disable external voltage source to micbias if present */
 		if (mbhc->mbhc_cb->enable_mb_source)
 			mbhc->mbhc_cb->enable_mb_source(codec, false);
@@ -1404,6 +1406,11 @@ static void wcd_mbhc_swch_irq_handler(struct wcd_mbhc *mbhc)
 			WCD_MBHC_REG_UPDATE_BITS(WCD_MBHC_ELECT_SCHMT_ISRC, 0);
 			wcd_mbhc_report_plug(mbhc, 0, SND_JACK_LINEOUT);
 		}
+#ifdef CONFIG_MACH_LENOVO_A6020
+		/*disable HS_US_EU_EN_GPIO */
+		gpio_direction_output(HS_US_EU_EN_GPIO, false);
+		gpio_direction_output(EXT_SPK_AMP_HEADSET_GPIO, false);
+#endif
 	} else if (!detection_type) {
 		/* Disable external voltage source to micbias if present */
 		if (mbhc->mbhc_cb->enable_mb_source)
@@ -2091,6 +2098,9 @@ int wcd_mbhc_start(struct wcd_mbhc *mbhc,
 	if ((!mbhc->is_btn_already_regd) && wcd_mbhc_set_keycode(mbhc))
 		pr_err("Set btn key code error!!!\n");
 
+#ifdef CONFIG_MACH_LENOVO_MSM8916
+	gpio_direction_output(EXT_SPK_AMP_HEADSET_GPIO, false);
+#endif
 	if (!mbhc->mbhc_cfg->read_fw_bin ||
 	    (mbhc->mbhc_cfg->read_fw_bin && mbhc->mbhc_fw) ||
 	    (mbhc->mbhc_cfg->read_fw_bin && mbhc->mbhc_cal)) {

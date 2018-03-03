@@ -45,7 +45,7 @@
 #include "msm8916-wcd-irq.h"
 #include "msm8x16_wcd_registers.h"
 
-#ifdef CONFIG_MACH_WT86518
+#ifdef CONFIG_MACH_LENOVO_MSM8916
 #include <linux/switch.h>
 #endif
 
@@ -136,7 +136,7 @@ static const DECLARE_TLV_DB_SCALE(digital_gain, 0, 1, 0);
 static const DECLARE_TLV_DB_SCALE(analog_gain, 0, 25, 1);
 static struct snd_soc_dai_driver msm8x16_wcd_i2s_dai[];
 
-#ifdef CONFIG_MACH_WT86518
+#ifdef CONFIG_MACH_LENOVO_MSM8916
 static struct switch_dev accdet_data;
 static int accdet_state = 0;
 static struct delayed_work analog_switch_enable;
@@ -3666,7 +3666,6 @@ static int msm8x16_wcd_codec_enable_dec(struct snd_soc_dapm_widget *w,
 		snd_soc_update_bits(codec,
 				MSM8X16_WCD_A_ANALOG_TX_1_2_TXFE_CLKDIV,
 				0xFF, 0x42);
-
 		break;
 	case SND_SOC_DAPM_POST_PMU:
 		/* enable HPF */
@@ -4044,59 +4043,65 @@ static int msm8x16_wcd_hphr_dac_event(struct snd_soc_dapm_widget *w,
 	return 0;
 }
 
-#ifdef CONFIG_MACH_WT86518
+#ifdef CONFIG_MACH_LENOVO_MSM8916
 static void msm8x16_analog_switch_delayed_enable(struct work_struct *work)
 {
 	int state = 0;
 
-	state = gpio_get_value(EXT_SPK_AMP_GPIO);
+#ifdef CONFIG_MACH_LENOVO_A6020
+	state = gpio_get_value(EXT_SPK_AMP_GPIO_1);
+#else
+        state = gpio_get_value(EXT_SPK_AMP_GPIO);
+#endif
+
 	pr_debug("%s: Enable analog switch,external PA state:%d\n", __func__,state);
 
 	if(!state)
 		gpio_direction_output(EXT_SPK_AMP_HEADSET_GPIO, true);
 }
 
+#ifdef CONFIG_MACH_LENOVO_A6020
+void msm8x16_wcd_codec_set_headset_state(u32 state)
+{
+	switch_set_state((struct switch_dev *)&accdet_data, state);
+	accdet_state = state;
+}
+
+int msm8x16_wcd_codec_get_headset_state(void)
+{
+	pr_debug("%s accdet_state = %d\n", __func__, accdet_state);
+	return accdet_state;
+}
+#endif
+
 static void enable_ldo17(int enable)
 {
 	static struct regulator *reg_l17 = 0;
 	static int status = 0;
 	int rc = 0;
-	if(!!status == !!enable)
-	{
+
+	if (!!status == !!enable)
 		return;
-	}
-	pr_err("wgz ldo17 enable = %d\n" , enable);
-	if(enable)
-	{
-		reg_l17 = regulator_get(0,"8916_l17");//wgz
-	}
-	if(reg_l17 != 0)
-	{
-		pr_err("wgz get regulator Ldo17 ok\n");
-		if(enable)
-		{
+
+	if (enable)
+		reg_l17 = regulator_get(0,"8916_l17");
+
+	if (reg_l17 != 0) {
+		if (enable) {
 			regulator_set_optimum_mode(reg_l17,100*1000);
 			regulator_set_voltage(reg_l17,2850000,2850000);
 			rc = regulator_enable(reg_l17);
-			if(rc)
-			{
+			if (rc)
 				pr_err("wgz regulator_enable error");
-			}
-		}
-		else
-		{
+		} else {
 			rc = regulator_disable(reg_l17);//wgz
-			if(rc)
-			{
+			if (rc)
 				pr_err("wgz regulator_disdable error");
-			}
 			regulator_put(reg_l17);
 			reg_l17 = 0;
 		}
 		status = enable;
-	}
-	else
-			{
+	} else {
 		pr_err("wgz get regulator Ldo17 error\n");
 	}
 }
@@ -4108,7 +4113,7 @@ static int msm8x16_wcd_hph_pa_event(struct snd_soc_dapm_widget *w,
 	struct snd_soc_codec *codec = w->codec;
 	struct msm8x16_wcd_priv *msm8x16_wcd = snd_soc_codec_get_drvdata(codec);
 
-#ifdef CONFIG_MACH_WT86518
+#ifdef CONFIG_MACH_LENOVO_MSM8916
 	int state = 0;
 #endif
 
@@ -4127,15 +4132,15 @@ static int msm8x16_wcd_hph_pa_event(struct snd_soc_dapm_widget *w,
 		break;
 
 	case SND_SOC_DAPM_POST_PMU:
-
-#ifdef CONFIG_MACH_WT86518
+#ifdef CONFIG_MACH_LENOVO_MSM8916
 		enable_ldo17(1);
 		state = msm8x16_wcd_codec_get_headset_state();
+#ifdef CONFIG_MACH_WT86518
 		usleep_range(4000, 4100);
 #else
 		usleep_range(7000, 7100);
 #endif
-
+#endif
 		if (w->shift == 5) {
 			snd_soc_update_bits(codec,
 				MSM8X16_WCD_A_ANALOG_RX_HPH_L_TEST, 0x04, 0x04);
@@ -4148,9 +4153,9 @@ static int msm8x16_wcd_hph_pa_event(struct snd_soc_dapm_widget *w,
 				MSM8X16_WCD_A_CDC_RX2_B6_CTL, 0x01, 0x00);
 		}
 
-#ifdef CONFIG_MACH_WT86518
+#ifdef CONFIG_MACH_LENOVO_MSM8916
 		usleep_range(10000, 10100);
-		if(!state)
+		if (!state)
 			gpio_direction_output(EXT_SPK_AMP_HEADSET_GPIO, false);
 		else
 			schedule_delayed_work(&analog_switch_enable, msecs_to_jiffies(500));
@@ -4205,11 +4210,10 @@ static int msm8x16_wcd_hph_pa_event(struct snd_soc_dapm_widget *w,
 			w->name);
 		usleep_range(10000, 10100);
 
-#ifdef CONFIG_MACH_WT86518
+#ifdef CONFIG_MACH_LENOVO_MSM816
 		gpio_direction_output(EXT_SPK_AMP_HEADSET_GPIO, false);
 		enable_ldo17(0);
 #endif
-
 		break;
 	}
 	return 0;
@@ -5570,7 +5574,7 @@ static int msm8x16_wcd_codec_probe(struct snd_soc_codec *codec)
 	wcd_mbhc_init(&msm8x16_wcd_priv->mbhc, codec, &mbhc_cb, &intr_ids,
 		      wcd_mbhc_registers, true);
 
-#ifdef CONFIG_MACH_WT86518
+#ifdef CONFIG_MACH_LENOVO_MSM8916
 	accdet_data.name = "h2w";
 	accdet_data.index = 0;
 	accdet_data.state = 0;
@@ -5580,7 +5584,8 @@ static int msm8x16_wcd_codec_probe(struct snd_soc_codec *codec)
 		dev_err(codec->dev, "%s: Failed to register h2w\n", __func__);
 		return -ENOMEM;
 	}
-#else
+#endif
+#ifndef CONFIG_MACH_WT86518
 	msm8x16_wcd_priv->mclk_enabled = false;
 #endif
 	msm8x16_wcd_priv->clock_active = false;
@@ -5605,7 +5610,7 @@ static int msm8x16_wcd_codec_probe(struct snd_soc_codec *codec)
 		return -ENOMEM;
 	}
 
-#ifdef CONFIG_MACH_WT86518
+#ifdef CONFIG_MACH_LENOVO_A6020
 	INIT_DELAYED_WORK(&analog_switch_enable, msm8x16_analog_switch_delayed_enable);
 #endif
 

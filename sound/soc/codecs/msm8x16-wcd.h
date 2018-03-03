@@ -51,10 +51,15 @@
 
 #define NUM_DECIMATORS	4
 #define MSM89XX_VDD_SPKDRV_NAME "cdc-vdd-spkdrv"
+
 #ifdef CONFIG_MACH_WT86518
 #define EXT_SPK_AMP_GPIO    (902+119)
-//#define EXT_SPK_AMP_GPIO_1    (902+117)
 #define EXT_SPK_AMP_HEADSET_GPIO    (902+120)
+#elif defined(CONFIG_MACH_LENOVO_A6020)
+#define EXT_SPK_AMP_GPIO    (902+10)
+#define EXT_SPK_AMP_GPIO_1    (902+11)
+#define EXT_SPK_AMP_HEADSET_GPIO    (902+52)
+#define HS_US_EU_EN_GPIO    (902+8)
 #endif
 
 #define DEFAULT_MULTIPLIER 800
