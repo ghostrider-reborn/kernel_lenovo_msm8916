@@ -54,7 +54,7 @@ static long hardwareinfo_ioctl(struct file *file, unsigned int cmd,unsigned long
 	case HARDWARE_WIFI_GET:
 		hardwareinfo_set_prop(HARDWARE_WIFI, "Qualcomm-msm8916");
 		hardwareinfo_num = HARDWARE_WIFI;
-		break;	
+		break;
 	case HARDWARE_ACCELEROMETER_GET:
 		hardwareinfo_num = HARDWARE_ACCELEROMETER;
 		break;
@@ -66,21 +66,51 @@ static long hardwareinfo_ioctl(struct file *file, unsigned int cmd,unsigned long
 		break;
 	case HARDWARE_MAGNETOMETER_GET:
 		hardwareinfo_num = HARDWARE_MAGNETOMETER;
-		break;		
+		break;
 	case HARDWARE_GPS_GET:
+#ifdef CONFIG_MACH_WT86518
 		hardwareinfo_set_prop(HARDWARE_GPS, "Qualcomm-msm8916");
-	    hardwareinfo_num = HARDWARE_GPS;
+#else
+                hardwareinfo_set_prop(HARDWARE_GPS, "Qualcomm");
+#endif
+		hardwareinfo_num = HARDWARE_GPS;
 		break;
 	case HARDWARE_FM_GET:
-		hardwareinfo_set_prop(HARDWARE_FM, "Qualcomm-msm8916");
-	    hardwareinfo_num = HARDWARE_FM;		
+#ifdef CONFIG_MACH_WT86518
+                hardwareinfo_set_prop(HARDWARE_GPS, "Qualcomm-msm8916");
+#else
+                hardwareinfo_set_prop(HARDWARE_GPS, "Qualcomm");
+#endif
+		hardwareinfo_num = HARDWARE_FM;
 		break;
 	case HARDWARE_BACK_CAM_MOUDULE_ID_GET:
 		hardwareinfo_num = HARDWARE_BACK_CAM_MOUDULE_ID;
 		break;
 	case HARDWARE_BATTERY_ID_GET:
 		hardwareinfo_num = HARDWARE_BATTERY_ID;
-		break;		
+		break;
+#ifdef MACH_LENOVO_A6020
+	case HARDWARE_FRONT_CAM_MODULE_ID_GET:
+		hardwareinfo_num = HARDWARE_FRONT_CAM_MOUDULE_ID;
+		break;
+	case HARDWARE_BOARD_ID_GET:
+		hardwareinfo_num = HARDWARE_BOARD_ID;
+		break;
+	case HARDWARE_BACK_CAM_MOUDULE_ID_SET:
+		if(copy_from_user(hardwareinfo_name[HARDWARE_BACK_CAM_MOUDULE_ID], data,strlen(data)))
+		{
+			pr_err("wgz copy_from_user error");
+			ret =  -EINVAL;
+		}
+		break;
+	case HARDWARE_FRONT_CAM_MODULE_ID_SET:
+		if(copy_from_user(hardwareinfo_name[HARDWARE_FRONT_CAM_MOUDULE_ID], data,strlen(data)))
+		{
+			pr_err("wgz copy_from_user error");
+			ret =  -EINVAL;
+		}
+		break;
+#endif
 	default:
 		ret = -EINVAL;
 		goto err_out;
@@ -90,6 +120,7 @@ static long hardwareinfo_ioctl(struct file *file, unsigned int cmd,unsigned long
 		//printk("%s, copy to usr error\n", __func__);
 		ret =  -EINVAL;
 	}
+
 err_out:
 	return ret;
 }
@@ -98,6 +129,10 @@ err_out:
 static struct file_operations hardwareinfo_fops = {
 	.owner = THIS_MODULE,
 	.unlocked_ioctl = hardwareinfo_ioctl,
+#ifdef MACH_LENOVO_A6020
+	.open = simple_open,
+	.compat_ioctl = hardwareinfo_ioctl,
+#endif
 };
 
 static struct miscdevice hardwareinfo_device = {
